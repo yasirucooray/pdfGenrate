@@ -20,12 +20,14 @@ class CsvController extends Controller
 
         $filePath = $request->file('csv_file')->store('uploads');
 
+        //check if file exists and readable
         if (!file_exists(storage_path('app/' . $filePath)) || !is_readable(storage_path('app/' . $filePath))) {
             return response()->json(['message' => 'Invalid file path'], 400);
         }
 
         $header = null;
         $data = array();
+        //read csv file
         if (($handle = fopen(storage_path('app/' . $filePath), 'r')) !== false) {
             while (($row = fgetcsv($handle, 1000, ',')) !== false) {
                 if (!$header) {
@@ -37,6 +39,7 @@ class CsvController extends Controller
             fclose($handle);
         }
 
+        //inset data into database
         foreach ($data as $row) {
             $customer = Customer::firstOrCreate(
                 ['email' => $row['customer_email']],
@@ -68,13 +71,16 @@ class CsvController extends Controller
 
     public function generatePdf()
     {
+        //get orders with customer and order items
         $orders = Order::with('customer', 'orderItems.product')->get();
 
+        //genrate view file
         $pdf = Pdf::loadView('orders_pdf', compact('orders'))->setPaper('a4', 'landscape');
 
         $fileName = 'orders_report_' . now()->format('Y_m_d_H_i_s') . '.pdf';
         Storage::put('public/reports/' . $fileName, $pdf->output());
 
+        //return pdf url
         $publicPath = Storage::url('public/reports/' . $fileName);
         $fullUrl = url($publicPath);
         return response()->json([
